@@ -82,8 +82,8 @@ def clipped_track(tmp_audio_dir) -> Path:
 
 @pytest.fixture
 def normal_track(tmp_audio_dir) -> Path:
-    """A track at roughly -14 LUFS — Spotify's target."""
-    return write_test_wav(tmp_audio_dir / "normal.wav", amplitude=0.25, duration=5.0)
+    """A track near -14 LUFS — close to Spotify's target."""
+    return write_test_wav(tmp_audio_dir / "normal.wav", amplitude=0.30, duration=5.0)
 
 
 @pytest.fixture
