@@ -11,6 +11,12 @@ from src.analyzers.loudness import analyze_loudness
 from src.engine.rules import build_platform_predictions, decide_actions
 from src.remediation.loudness import fix_loudness
 from src.models.report import ActionType
+from src.platform_specs import PLATFORMS
+
+
+def strictest_peak_ceiling() -> float:
+    """Return the most restrictive true peak limit across all platforms."""
+    return min(spec.max_true_peak_dbtp for spec in PLATFORMS.values())
 
 
 def process_track(
@@ -58,7 +64,7 @@ def process_track(
         actions=actions,
     )
 
-    # Fix if needed
+    # Fix if needed — use strictest peak ceiling across all platforms
     if report.needs_fix:
         stem = input_path.stem
         fixed_name = f"{stem}_fixed.wav"
@@ -68,6 +74,7 @@ def process_track(
             input_path=input_path,
             output_path=fixed_path,
             target_lufs=target_lufs,
+            peak_ceiling_dbtp=strictest_peak_ceiling(),
         )
         report.fixed_path = fixed_path
 
