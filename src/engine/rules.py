@@ -7,6 +7,7 @@ analysis and remediation layers.
 
 from src.models.report import (
     LoudnessReport,
+    SilenceReport,
     PlatformPrediction,
     Severity,
     ActionType,
@@ -69,7 +70,6 @@ def build_platform_predictions(
             )
         )
 
-    # Worst severity first for display
     severity_order = {Severity.FAIL: 0, Severity.WARNING: 1, Severity.PASS: 2}
     predictions.sort(key=lambda p: severity_order[p.severity])
 
@@ -80,6 +80,7 @@ def decide_actions(
     loudness: LoudnessReport,
     predictions: list[PlatformPrediction],
     target_lufs: float = -14.0,
+    silence: SilenceReport | None = None,
 ) -> list[ActionType]:
     """Decide what actions to take based on analysis results.
 
@@ -91,20 +92,19 @@ def decide_actions(
         loudness: Measured loudness data.
         predictions: Per-platform predictions.
         target_lufs: LUFS target for auto-fix (default: Spotify's -14).
+        silence: Silence analysis data, if available.
 
     Returns:
         List of actions the system should take.
     """
     actions = []
 
-    # Compare against the target the user chose, not every platform
     lufs_distance = abs(loudness.integrated_lufs - target_lufs)
     has_loudness_issue = lufs_distance > 1.0
-
-    # Peak compliance still checks all platforms — a hot peak is a hot peak
     has_peak_issue = any(not p.true_peak_compliant for p in predictions)
+    has_silence_issue = silence is not None and silence.needs_trim
 
-    if has_loudness_issue or has_peak_issue:
+    if has_loudness_issue or has_peak_issue or has_silence_issue:
         actions.append(ActionType.AUTO_FIX)
 
     if not actions:

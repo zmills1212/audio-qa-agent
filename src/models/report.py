@@ -37,6 +37,24 @@ class LoudnessReport:
 
 
 @dataclass(frozen=True)
+class SilenceReport:
+    """Output of the silence analyzer."""
+
+    leading_silence_ms: float
+    trailing_silence_ms: float
+    leading_trimmed: bool  # whether leading silence exceeds threshold
+    trailing_trimmed: bool  # whether trailing silence exceeds threshold
+
+    @property
+    def total_silence_ms(self) -> float:
+        return self.leading_silence_ms + self.trailing_silence_ms
+
+    @property
+    def needs_trim(self) -> bool:
+        return self.leading_trimmed or self.trailing_trimmed
+
+
+@dataclass(frozen=True)
 class PlatformPrediction:
     """What a specific platform will do to this track."""
 
@@ -57,6 +75,7 @@ class TrackReport:
     channels: int
     duration_seconds: float
     loudness: LoudnessReport | None = None
+    silence: SilenceReport | None = None
     platform_predictions: list[PlatformPrediction] = field(default_factory=list)
     actions: list[ActionType] = field(default_factory=list)
     fixed_path: Path | None = None

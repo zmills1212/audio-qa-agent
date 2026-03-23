@@ -1,9 +1,9 @@
 """CLI entry point — the demo interface.
 
 Usage:
-    python -m src.cli path/to/track.wav
-    python -m src.cli path/to/track.wav --target-lufs -16
-    python -m src.cli path/to/track.wav --output-dir ./fixed
+    python -m src path/to/track.wav
+    python -m src path/to/track.wav --target-lufs -16
+    python -m src path/to/track.wav --output-dir ./fixed
 """
 
 import argparse
@@ -26,22 +26,34 @@ def format_report(report) -> str:
     """Format a TrackReport as a readable CLI output."""
     lines = []
     loud = report.loudness
+    silence = report.silence
 
     # Header
     lines.append("")
-    lines.append(f"  Track:      {report.source_path.name}")
-    lines.append(f"  Duration:   {report.duration_seconds:.1f}s")
+    lines.append(f"  Track:       {report.source_path.name}")
+    lines.append(f"  Duration:    {report.duration_seconds:.1f}s")
     lines.append(f"  Sample Rate: {report.sample_rate} Hz | Channels: {report.channels}")
     lines.append("")
 
     # Loudness measurements
-    lines.append("  ── Loudness Measurements ──")
+    lines.append("  ── Loudness ──")
     lines.append(f"  Integrated LUFS:   {loud.integrated_lufs:.1f}")
     lines.append(f"  True Peak:         {loud.true_peak_dbtp:.1f} dBTP")
     lines.append(f"  Sample Peak:       {loud.sample_peak_dbfs:.1f} dBFS")
     lines.append(f"  Loudness Range:    {loud.loudness_range_lu:.1f} LU")
     lines.append(f"  Short-term Max:    {loud.short_term_max_lufs:.1f} LUFS")
     lines.append("")
+
+    # Silence measurements
+    if silence:
+        lines.append("  ── Silence ──")
+        leading_s = silence.leading_silence_ms / 1000
+        trailing_s = silence.trailing_silence_ms / 1000
+        lead_flag = " ← trim" if silence.leading_trimmed else ""
+        trail_flag = " ← trim" if silence.trailing_trimmed else ""
+        lines.append(f"  Leading:   {leading_s:.2f}s{lead_flag}")
+        lines.append(f"  Trailing:  {trailing_s:.2f}s{trail_flag}")
+        lines.append("")
 
     # Platform predictions
     lines.append("  ── Platform Predictions ──")
@@ -62,9 +74,18 @@ def format_report(report) -> str:
 
     lines.append("")
 
-    # Action taken
+    # Actions taken
     if ActionType.AUTO_FIX in report.actions:
-        lines.append(f"  🔧 Fixed version saved: {report.fixed_path.name}")
+        fixes = []
+        if silence and silence.needs_trim:
+            fixes.append("trimmed silence")
+        if any(not p.true_peak_compliant for p in report.platform_predictions):
+            fixes.append("limited peaks")
+        lufs_distance = abs(loud.integrated_lufs - (-14.0))
+        if lufs_distance > 1.0:
+            fixes.append("normalized loudness")
+        fix_desc = ", ".join(fixes) if fixes else "applied corrections"
+        lines.append(f"  🔧 Fixed ({fix_desc}): {report.fixed_path.name}")
     else:
         lines.append("  ✅ No issues found — track is platform-ready.")
 
