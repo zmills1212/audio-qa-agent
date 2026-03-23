@@ -8,6 +8,7 @@ analysis and remediation layers.
 from src.models.report import (
     LoudnessReport,
     SilenceReport,
+    ClippingReport,
     PlatformPrediction,
     Severity,
     ActionType,
@@ -81,18 +82,16 @@ def decide_actions(
     predictions: list[PlatformPrediction],
     target_lufs: float = -14.0,
     silence: SilenceReport | None = None,
+    clipping: ClippingReport | None = None,
 ) -> list[ActionType]:
     """Decide what actions to take based on analysis results.
-
-    Compares the track's loudness against the user's chosen target,
-    not against every platform individually. Platform predictions are
-    informational — this function decides whether to act.
 
     Args:
         loudness: Measured loudness data.
         predictions: Per-platform predictions.
         target_lufs: LUFS target for auto-fix (default: Spotify's -14).
         silence: Silence analysis data, if available.
+        clipping: Clipping analysis data, if available.
 
     Returns:
         List of actions the system should take.
@@ -103,9 +102,14 @@ def decide_actions(
     has_loudness_issue = lufs_distance > 1.0
     has_peak_issue = any(not p.true_peak_compliant for p in predictions)
     has_silence_issue = silence is not None and silence.needs_trim
+    has_clipping = clipping is not None and clipping.has_clipping
 
     if has_loudness_issue or has_peak_issue or has_silence_issue:
         actions.append(ActionType.AUTO_FIX)
+
+    # Clipping is flagged for review — auto-fix could destroy intentional distortion
+    if has_clipping:
+        actions.append(ActionType.FLAG_FOR_REVIEW)
 
     if not actions:
         actions.append(ActionType.NO_ACTION)

@@ -27,6 +27,7 @@ def format_report(report) -> str:
     lines = []
     loud = report.loudness
     silence = report.silence
+    clipping = report.clipping
 
     # Header
     lines.append("")
@@ -35,7 +36,7 @@ def format_report(report) -> str:
     lines.append(f"  Sample Rate: {report.sample_rate} Hz | Channels: {report.channels}")
     lines.append("")
 
-    # Loudness measurements
+    # Loudness
     lines.append("  ── Loudness ──")
     lines.append(f"  Integrated LUFS:   {loud.integrated_lufs:.1f}")
     lines.append(f"  True Peak:         {loud.true_peak_dbtp:.1f} dBTP")
@@ -44,7 +45,7 @@ def format_report(report) -> str:
     lines.append(f"  Short-term Max:    {loud.short_term_max_lufs:.1f} LUFS")
     lines.append("")
 
-    # Silence measurements
+    # Silence
     if silence:
         lines.append("  ── Silence ──")
         leading_s = silence.leading_silence_ms / 1000
@@ -53,6 +54,18 @@ def format_report(report) -> str:
         trail_flag = " ← trim" if silence.trailing_trimmed else ""
         lines.append(f"  Leading:   {leading_s:.2f}s{lead_flag}")
         lines.append(f"  Trailing:  {trailing_s:.2f}s{trail_flag}")
+        lines.append("")
+
+    # Clipping
+    if clipping:
+        lines.append("  ── Clipping ──")
+        icon = severity_icon(clipping.severity)
+        if clipping.has_clipping:
+            lines.append(f"  {icon} {clipping.clip_count} clipped regions detected")
+            lines.append(f"     {clipping.clipped_samples} samples affected ({clipping.clip_percentage:.4f}%)")
+            lines.append(f"     Sample peak: {clipping.peak_dbfs:.1f} dBFS")
+        else:
+            lines.append(f"  {icon} No clipping detected")
         lines.append("")
 
     # Platform predictions
@@ -74,7 +87,7 @@ def format_report(report) -> str:
 
     lines.append("")
 
-    # Actions taken
+    # Actions
     if ActionType.AUTO_FIX in report.actions:
         fixes = []
         if silence and silence.needs_trim:
@@ -86,7 +99,11 @@ def format_report(report) -> str:
             fixes.append("normalized loudness")
         fix_desc = ", ".join(fixes) if fixes else "applied corrections"
         lines.append(f"  🔧 Fixed ({fix_desc}): {report.fixed_path.name}")
-    else:
+
+    if ActionType.FLAG_FOR_REVIEW in report.actions:
+        lines.append("  ⚠️  Clipping detected — review recommended (may be intentional distortion)")
+
+    if report.actions == [ActionType.NO_ACTION]:
         lines.append("  ✅ No issues found — track is platform-ready.")
 
     lines.append("")

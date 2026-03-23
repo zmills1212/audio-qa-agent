@@ -42,8 +42,8 @@ class SilenceReport:
 
     leading_silence_ms: float
     trailing_silence_ms: float
-    leading_trimmed: bool  # whether leading silence exceeds threshold
-    trailing_trimmed: bool  # whether trailing silence exceeds threshold
+    leading_trimmed: bool
+    trailing_trimmed: bool
 
     @property
     def total_silence_ms(self) -> float:
@@ -55,14 +55,49 @@ class SilenceReport:
 
 
 @dataclass(frozen=True)
+class ClipRegion:
+    """A contiguous region of clipped samples."""
+
+    start_sample: int
+    end_sample: int
+    channel: int
+
+    @property
+    def length(self) -> int:
+        return self.end_sample - self.start_sample
+
+
+@dataclass(frozen=True)
+class ClippingReport:
+    """Output of the clipping analyzer."""
+
+    clip_count: int  # total number of clipped regions
+    clipped_samples: int  # total individual samples at the rail
+    total_samples: int
+    clip_regions: list[ClipRegion]
+    peak_dbfs: float  # sample peak in dBFS
+    severity: Severity
+
+    @property
+    def clip_percentage(self) -> float:
+        if self.total_samples == 0:
+            return 0.0
+        return (self.clipped_samples / self.total_samples) * 100
+
+    @property
+    def has_clipping(self) -> bool:
+        return self.clip_count > 0
+
+
+@dataclass(frozen=True)
 class PlatformPrediction:
     """What a specific platform will do to this track."""
 
     platform_name: str
     target_lufs: float
-    loudness_delta_db: float  # negative = turned down
+    loudness_delta_db: float
     true_peak_compliant: bool
-    true_peak_headroom_db: float  # how far below the limit
+    true_peak_headroom_db: float
     severity: Severity
 
 
@@ -76,6 +111,7 @@ class TrackReport:
     duration_seconds: float
     loudness: LoudnessReport | None = None
     silence: SilenceReport | None = None
+    clipping: ClippingReport | None = None
     platform_predictions: list[PlatformPrediction] = field(default_factory=list)
     actions: list[ActionType] = field(default_factory=list)
     fixed_path: Path | None = None

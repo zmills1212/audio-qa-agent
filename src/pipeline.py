@@ -9,6 +9,7 @@ from pathlib import Path
 from src.models.report import TrackReport, ActionType
 from src.analyzers.loudness import analyze_loudness
 from src.analyzers.silence import analyze_silence
+from src.analyzers.clipping import analyze_clipping
 from src.engine.rules import build_platform_predictions, decide_actions
 from src.remediation.loudness import fix_loudness
 from src.remediation.silence import trim_silence
@@ -48,12 +49,13 @@ def process_track(
     # Analyze
     loudness = analyze_loudness(input_path)
     silence = analyze_silence(input_path)
+    clipping = analyze_clipping(input_path)
 
     # Predict
     predictions = build_platform_predictions(loudness)
 
     # Decide
-    actions = decide_actions(loudness, predictions, target_lufs, silence)
+    actions = decide_actions(loudness, predictions, target_lufs, silence, clipping)
 
     # Build report
     report = TrackReport(
@@ -63,6 +65,7 @@ def process_track(
         duration_seconds=info.duration,
         loudness=loudness,
         silence=silence,
+        clipping=clipping,
         platform_predictions=predictions,
         actions=actions,
     )
@@ -73,10 +76,9 @@ def process_track(
         fixed_name = f"{stem}_fixed.wav"
         fixed_path = output_dir / fixed_name
 
-        # Start with the input file
         current_path = input_path
 
-        # Trim silence first (if needed) — before loudness so LUFS isn't skewed by silence
+        # Trim silence first (if needed)
         if silence.needs_trim:
             trimmed_path = output_dir / f"{stem}_trimmed.wav"
             trim_silence(current_path, trimmed_path)
@@ -94,11 +96,9 @@ def process_track(
                 target_lufs=target_lufs,
                 peak_ceiling_dbtp=strictest_peak_ceiling(),
             )
-            # Clean up intermediate trimmed file
             if current_path != input_path and current_path.exists():
                 current_path.unlink()
         elif current_path != input_path:
-            # Only silence was trimmed, rename to final output
             current_path.rename(fixed_path)
 
         report.fixed_path = fixed_path
