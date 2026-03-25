@@ -14,6 +14,7 @@ from src.engine.rules import build_platform_predictions, decide_actions
 from src.remediation.loudness import fix_loudness
 from src.remediation.silence import trim_silence
 from src.platform_specs import PLATFORMS
+from src.utils.audio_io import prepare_audio
 
 
 def strictest_peak_ceiling() -> float:
@@ -28,7 +29,8 @@ def process_track(
 ) -> TrackReport:
     """Analyze a track, decide what to fix, and apply corrections.
 
-    This is the main entry point for the entire system.
+    Accepts any supported audio format — MP4, M4A, MOV, MP3, WAV, FLAC, etc.
+    Non-native formats are converted to WAV via ffmpeg automatically.
 
     Args:
         input_path: Path to the audio file.
@@ -43,13 +45,16 @@ def process_track(
         output_dir = input_path.parent
     output_dir = Path(output_dir)
 
+    # Convert if needed (MP4, M4A, etc. → WAV)
+    audio_path, was_converted = prepare_audio(input_path, work_dir=output_dir)
+
     # Load file info
-    info = sf.info(str(input_path))
+    info = sf.info(str(audio_path))
 
     # Analyze
-    loudness = analyze_loudness(input_path)
-    silence = analyze_silence(input_path)
-    clipping = analyze_clipping(input_path)
+    loudness = analyze_loudness(audio_path)
+    silence = analyze_silence(audio_path)
+    clipping = analyze_clipping(audio_path)
 
     # Predict
     predictions = build_platform_predictions(loudness)
@@ -57,7 +62,7 @@ def process_track(
     # Decide
     actions = decide_actions(loudness, predictions, target_lufs, silence, clipping)
 
-    # Build report
+    # Build report — source_path stays as the original input for display
     report = TrackReport(
         source_path=input_path,
         sample_rate=info.samplerate,
@@ -76,7 +81,7 @@ def process_track(
         fixed_name = f"{stem}_fixed.wav"
         fixed_path = output_dir / fixed_name
 
-        current_path = input_path
+        current_path = audio_path
 
         # Trim silence first (if needed)
         if silence.needs_trim:
@@ -96,10 +101,14 @@ def process_track(
                 target_lufs=target_lufs,
                 peak_ceiling_dbtp=strictest_peak_ceiling(),
             )
-            if current_path != input_path and current_path.exists():
+            if current_path != audio_path and current_path.exists():
                 current_path.unlink()
-        elif current_path != input_path:
+        elif current_path != audio_path:
             current_path.rename(fixed_path)
+
+        # Clean up intermediate converted file if we created one
+        if was_converted and audio_path != fixed_path and audio_path.exists():
+            audio_path.unlink()
 
         report.fixed_path = fixed_path
 

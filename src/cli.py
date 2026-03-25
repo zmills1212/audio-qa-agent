@@ -2,7 +2,8 @@
 
 Usage:
     python -m src path/to/track.wav
-    python -m src path/to/track.wav --target-lufs -16
+    python -m src path/to/track.mp4
+    python -m src path/to/track.m4a --target-lufs -16
     python -m src path/to/track.wav --output-dir ./fixed
 """
 
@@ -12,6 +13,7 @@ from pathlib import Path
 
 from src.pipeline import process_track
 from src.models.report import Severity, ActionType
+from src.utils.audio_io import ALL_SUPPORTED
 
 
 def severity_icon(severity: Severity) -> str:
@@ -111,10 +113,11 @@ def format_report(report) -> str:
 
 
 def main():
+    extensions = ", ".join(sorted(ALL_SUPPORTED))
     parser = argparse.ArgumentParser(
         description="Audio QA Agent — analyze and fix tracks for streaming platforms",
     )
-    parser.add_argument("track", type=Path, help="Path to audio file")
+    parser.add_argument("track", type=Path, help=f"Path to audio file ({extensions})")
     parser.add_argument(
         "--target-lufs",
         type=float,

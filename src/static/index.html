@@ -202,9 +202,9 @@
       Drop a track here or <strong>click to browse</strong>
     </div>
     <div class="upload-text" style="margin-top:0.25rem; font-size:0.8rem;">
-      WAV, FLAC, MP3, AIF, OGG
+      WAV, FLAC, MP3, MP4, M4A, OGG, MOV
     </div>
-    <input type="file" id="fileInput" accept=".wav,.flac,.mp3,.aif,.aiff,.ogg,.m4a">
+    <input type="file" id="fileInput" accept=".wav,.flac,.mp3,.aif,.aiff,.ogg,.m4a,.mp4,.mov,.webm,.aac,.wma,.opus">
   </div>
 
   <div class="results" id="results">
@@ -287,7 +287,7 @@ async function handleFile(file) {
 
 function resetUpload() {
   uploadArea.classList.remove("processing");
-  uploadArea.innerHTML = '<div class="upload-icon">🎵</div><div class="upload-text">Drop a track here or <strong>click to browse</strong></div><div class="upload-text" style="margin-top:0.25rem;font-size:0.8rem;">WAV, FLAC, MP3, AIF, OGG</div>';
+  uploadArea.innerHTML = '<div class="upload-icon">🎵</div><div class="upload-text">Drop a track here or <strong>click to browse</strong></div><div class="upload-text" style="margin-top:0.25rem;font-size:0.8rem;">WAV, FLAC, MP3, MP4, M4A, OGG, MOV</div>';
   fileInput.value = "";
 }
 
